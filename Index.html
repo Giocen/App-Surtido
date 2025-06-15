@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>App Surtido</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 relative">
+
+  <!-- Botón pequeño arriba izquierda -->
+  <div class="absolute top-2 left-2 z-50">
+    <button id="abrirModal" class="bg-pink-600 text-white text-sm px-2 py-1 rounded hover:bg-pink-700 shadow-sm">
+      📁 CSV
+    </button>
+  </div>
+
+  <!-- Título -->
+  <h1 class="text-2xl font-bold text-center mb-4 text-pink-600">📦 App Surtido</h1>
+
+  <!-- Contenedor de tabla visible -->
+  <div id="tablaSurtido" class="bg-white rounded shadow overflow-auto max-w-full"></div>
+
+  <!-- Modal de carga CSV -->
+  <div id="modalCSV" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
+    <div class="bg-white rounded-xl p-6 shadow-lg w-full max-w-md">
+      <h2 class="text-xl font-bold text-center mb-4 text-pink-600">Subir archivo CSV</h2>
+      <input type="file" id="csvUploader" accept=".csv" class="mb-4 w-full border p-2 rounded" />
+      <div class="flex justify-end gap-2">
+        <button id="cancelarModal" class="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400">Cancelar</button>
+        <button id="btnSubirCSV" class="bg-pink-600 text-white px-4 py-2 rounded hover:bg-pink-700">
+          Subir
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script de tabla -->
+  <script type="module" src="./js/surtidoTable.js"></script>
+
+  <!-- Script del modal -->
+  <script>
+    document.getElementById("abrirModal").onclick = () => {
+      document.getElementById("modalCSV").classList.remove("hidden");
+    };
+    document.getElementById("cancelarModal").onclick = () => {
+      document.getElementById("modalCSV").classList.add("hidden");
+    };
+
+    document.getElementById("btnSubirCSV").onclick = async () => {
+      const input = document.getElementById("csvUploader");
+      const file = input.files[0];
+      if (!file) {
+        alert("Selecciona un archivo .csv primero");
+        return;
+      }
+
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function (results) {
+          console.log("📄 Datos parseados:", results.data);
+          alert("✅ Archivo leído correctamente. (Aquí iría la carga a Supabase)");
+          document.getElementById("modalCSV").classList.add("hidden");
+          input.value = "";
+        }
+      });
+    };
+  </script>
+</body>
+</html>
