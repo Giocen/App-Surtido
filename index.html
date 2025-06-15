@@ -9,7 +9,7 @@
 </head>
 <body class="bg-gray-100 min-h-screen p-4 relative">
 
-  <!-- Botón pequeño arriba izquierda -->
+  <!-- Botón arriba izquierda -->
   <div class="absolute top-2 left-2 z-50">
     <button id="abrirModal" class="bg-pink-600 text-white text-sm px-2 py-1 rounded hover:bg-pink-700 shadow-sm">
       📁 CSV
@@ -19,28 +19,38 @@
   <!-- Título -->
   <h1 class="text-2xl font-bold text-center mb-4 text-pink-600">📦 App Surtido</h1>
 
-  <!-- Contenedor de tabla visible -->
+  <!-- Contenedor tabla -->
   <div id="tablaSurtido" class="bg-white rounded shadow overflow-auto max-w-full"></div>
 
-  <!-- Modal de carga CSV -->
+  <!-- Modal -->
   <div id="modalCSV" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
     <div class="bg-white rounded-xl p-6 shadow-lg w-full max-w-md">
       <h2 class="text-xl font-bold text-center mb-4 text-pink-600">Subir archivo CSV</h2>
       <input type="file" id="csvUploader" accept=".csv" class="mb-4 w-full border p-2 rounded" />
-      <div class="flex justify-end gap-2">
+
+      <!-- Progreso -->
+      <div id="cargando" class="mb-4 hidden">
+        <div class="text-sm text-pink-600 font-semibold mb-1" id="progresoTexto">Subiendo...</div>
+        <div class="w-full bg-gray-200 rounded-full h-4">
+          <div id="barraProgreso" class="bg-pink-500 h-4 rounded-full" style="width: 0%; transition: width 0.3s;"></div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 mt-4">
         <button id="cancelarModal" class="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400">Cancelar</button>
-        <button id="btnSubirCSV" class="bg-pink-600 text-white px-4 py-2 rounded hover:bg-pink-700">
-          Subir
-        </button>
+        <button id="btnSubirCSV" class="bg-pink-600 text-white px-4 py-2 rounded hover:bg-pink-700">Subir</button>
       </div>
     </div>
   </div>
 
-  <!-- Script de tabla -->
+  <!-- JS tabla -->
   <script type="module" src="./js/surtidoTable.js"></script>
 
-  <!-- Script del modal -->
-  <script>
+  <!-- JS modal + carga CSV -->
+  <script type="module">
+    import { supabase } from './js/supabaseClient.js';
+    import { cargarDatos } from './js/surtidoTable.js';
+
     document.getElementById("abrirModal").onclick = () => {
       document.getElementById("modalCSV").classList.remove("hidden");
     };
@@ -51,19 +61,90 @@
     document.getElementById("btnSubirCSV").onclick = async () => {
       const input = document.getElementById("csvUploader");
       const file = input.files[0];
-      if (!file) {
-        alert("Selecciona un archivo .csv primero");
-        return;
-      }
+      const cargando = document.getElementById("cargando");
+      const barra = document.getElementById("barraProgreso");
+      const texto = document.getElementById("progresoTexto");
+      const btn = document.getElementById("btnSubirCSV");
+
+      if (!file) return alert("Selecciona un archivo .csv primero");
+
+      cargando.classList.remove("hidden");
+      btn.disabled = true;
+      btn.textContent = "Subiendo...";
+      barra.style.width = "0%";
+      texto.textContent = "⏳ Preparando datos...";
 
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
-        complete: function (results) {
-          console.log("📄 Datos parseados:", results.data);
-          alert("✅ Archivo leído correctamente. (Aquí iría la carga a Supabase)");
-          document.getElementById("modalCSV").classList.add("hidden");
+        complete: async function (results) {
+          const rows = results.data;
+          if (!rows.length || !rows[0]["Remision"] || !rows[0]["SKU"]) {
+            alert("❌ Encabezados inválidos.");
+            cargando.classList.add("hidden");
+            btn.disabled = false;
+            btn.textContent = "Subir";
+            return;
+          }
+
+          const chunkSize = 100;
+          let totalSubidos = 0;
+
+          for (let i = 0; i < rows.length; i += chunkSize) {
+            const chunk = rows.slice(i, i + chunkSize);
+            const datosValidados = chunk.map(item => ({
+              Planta: item["Planta"] || null,
+              Remision: item["Remision"],
+              SKU: item["SKU"],
+              Descripcion: item["Descripcion"],
+              Cantidad: item["Cantidad"],
+              Seccion: item["Seccion"],
+              Fecha_Hora_Emission: item["Fecha_Hora_Emission"],
+              Fecha_Hora_Assignacion_Tienda: item["Fecha_Hora_Assignacion_Tienda"],
+              Status: item["Status"],
+              "Fecha Status": item["Fecha Status"],
+              "Hora Status": item["Hora Status"],
+              Motivo_Rechazo: item["Motivo_Rechazo"],
+              ID_Usuario: item["ID_Usuario"],
+              Nome_Usuario: item["Nome_Usuario"],
+              "ID Usuario Vendedor": item["ID Usuario Vendedor"],
+              No_Vendedor: item["No_Vendedor"],
+              ID_Jefe_Piso: item["ID_Jefe_Piso"],
+              Jefe_Piso: item["Jefe_Piso"],
+              Evento: item["Evento"],
+              "Tipo Orden": item["Tipo Orden"],
+              "Tipo Entrega": item["Tipo Entrega"],
+              FechaFinalizado: item["FechaFinalizado"],
+              LP: item["LP"]
+            }));
+
+            const { error } = await supabase.from("App_Surtido").insert(datosValidados);
+            if (error) {
+              console.error("❌ Error al insertar:", error);
+              alert("❌ Error al subir datos. Ver consola.");
+              cargando.classList.add("hidden");
+              btn.disabled = false;
+              btn.textContent = "Subir";
+              return;
+            }
+
+            totalSubidos += datosValidados.length;
+            const progreso = Math.min((totalSubidos / rows.length) * 100, 100);
+            barra.style.width = `${progreso.toFixed(1)}%`;
+            texto.textContent = `⬆️ Subidos ${totalSubidos} de ${rows.length} registros...`;
+          }
+
+          alert("✅ Datos cargados correctamente.");
           input.value = "";
+          cargando.classList.add("hidden");
+          barra.style.width = "0%";
+          texto.textContent = "";
+          btn.disabled = false;
+          btn.textContent = "Subir";
+
+          // ✅ Refrescar tabla y cerrar modal
+          await cargarDatos();
+          document.getElementById("modalCSV").classList.add("hidden");
         }
       });
     };

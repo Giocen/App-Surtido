@@ -1,30 +1,30 @@
-import { SUPABASE_API_KEY } from './supabaseClient.js'
+import { supabase } from './supabaseClient.js';
 
-async function cargarDatos() {
-  const tabla = document.getElementById('tablaSurtido')
+export async function cargarDatos() {
+  const tabla = document.getElementById('tablaSurtido');
 
-const url = 'https://iexiqtweyghgmnpxtdzc.supabase.co/rest/v1/App_Surtido?select=' +
-  encodeURIComponent(`Remision,SKU,Descripcion,Seccion,Jefe_Piso,Nome_Usuario,Cantidad,Fecha_Hora_Assignacion_Tienda,"Tipo Orden",Fecha_Hora_Emission,"Hora Status"`) +
-  '&limit=100'
-  
+  const url = 'https://iexiqtweyghgmnpxtdzc.supabase.co/rest/v1/App_Surtido?select=' +
+    encodeURIComponent(`Remision,SKU,Descripcion,Seccion,Jefe_Piso,Nome_Usuario,Cantidad,Fecha_Hora_Assignacion_Tienda,"Tipo Orden",Fecha_Hora_Emission,"Hora Status"`) +
+    '&limit=100';
+
   const res = await fetch(url, {
     headers: {
-      apikey: SUPABASE_API_KEY,
-      Authorization: `Bearer ${SUPABASE_API_KEY}`
+      apikey: supabase.supabaseKey || '', // opcional si tienes export de key
+      Authorization: `Bearer ${supabase.supabaseKey || ''}`
     }
-  })
+  });
 
-  const data = await res.json()
+  const data = await res.json();
 
   if (!res.ok || !data) {
-    console.error("Error al cargar datos:", data)
-    tabla.innerHTML = "<p class='p-4 text-center text-red-500'>Error al cargar datos.</p>"
-    return
+    console.error("Error al cargar datos:", data);
+    tabla.innerHTML = "<p class='p-4 text-center text-red-500'>Error al cargar datos.</p>";
+    return;
   }
 
   if (data.length === 0) {
-    tabla.innerHTML = "<p class='p-4 text-center text-gray-500'>No hay datos disponibles.</p>"
-    return
+    tabla.innerHTML = "<p class='p-4 text-center text-gray-500'>No hay datos disponibles.</p>";
+    return;
   }
 
   let html = `
@@ -46,11 +46,11 @@ const url = 'https://iexiqtweyghgmnpxtdzc.supabase.co/rest/v1/App_Surtido?select
         </tr>
       </thead>
       <tbody>
-  `
+  `;
 
   data.forEach(row => {
-    const tiempo = calcularTiempoSurtido(row["Fecha_Hora_Emission"], row["Fecha_Hora_Assignacion_Tienda"])
-    const proceso = evaluar2Horas(row["Fecha_Hora_Emission"], row["Fecha_Hora_Assignacion_Tienda"])
+    const tiempo = calcularTiempoSurtido(row["Fecha_Hora_Emission"], row["Fecha_Hora_Assignacion_Tienda"]);
+    const proceso = evaluar2Horas(row["Fecha_Hora_Emission"], row["Fecha_Hora_Assignacion_Tienda"]);
 
     html += `
       <tr class="border-b hover:bg-pink-50">
@@ -66,9 +66,26 @@ const url = 'https://iexiqtweyghgmnpxtdzc.supabase.co/rest/v1/App_Surtido?select
         <td class="p-2">${tiempo}</td>
         <td class="p-2">${row["Hora Status"] ?? ''}</td>
         <td class="p-2 text-center">${proceso}</td>
-      </tr>`
-  })
+      </tr>`;
+  });
 
-  html += `</tbody></table>`
-  tabla.innerHTML = html
+  html += `</tbody></table>`;
+  tabla.innerHTML = html;
+}
+
+// Funciones auxiliares
+function calcularTiempoSurtido(emision, asignacion) {
+  if (!emision || !asignacion) return '';
+  const inicio = new Date(emision);
+  const fin = new Date(asignacion);
+  const diffHrs = (fin - inicio) / (1000 * 60 * 60);
+  return `${diffHrs.toFixed(1)} hrs`;
+}
+
+function evaluar2Horas(emision, asignacion) {
+  if (!emision || !asignacion) return '';
+  const inicio = new Date(emision);
+  const fin = new Date(asignacion);
+  const diffHrs = (fin - inicio) / (1000 * 60 * 60);
+  return diffHrs > 2 ? '❌' : '✅';
 }
