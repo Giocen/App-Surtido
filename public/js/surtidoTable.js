@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient.js';
+import { SUPABASE_API_KEY } from './supabaseClient.js';
 
 export async function cargarDatos() {
   const tabla = document.getElementById('tablaSurtido');
@@ -9,15 +9,15 @@ export async function cargarDatos() {
 
   const res = await fetch(url, {
     headers: {
-      apikey: supabase.supabaseKey || '', // opcional si tienes export de key
-      Authorization: `Bearer ${supabase.supabaseKey || ''}`
+      apikey: SUPABASE_API_KEY,                      // ✅ CLAVE DIRECTA
+      Authorization: `Bearer ${SUPABASE_API_KEY}`    // ✅ CLAVE DIRECTA
     }
   });
 
   const data = await res.json();
 
   if (!res.ok || !data) {
-    console.error("Error al cargar datos:", data);
+    console.error("❌ Error al cargar datos:", data);
     tabla.innerHTML = "<p class='p-4 text-center text-red-500'>Error al cargar datos.</p>";
     return;
   }
